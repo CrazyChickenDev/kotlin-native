@@ -140,8 +140,8 @@ internal class ModuleMetadataEmitter(
                 with (MappingExtensions(data.typeParametersInterner)) {
                     KmTypeAlias(element.flags, element.alias.topLevelName).also { km ->
                         km.uniqId = data.uniqIds.uniqIdForTypeAlias(element)
-                        km.underlyingType = element.aliasee.map(shouldExpandTypeAliases = false)
-                        km.expandedType = element.aliasee.map()
+                        km.underlyingType = element.aliasee.map(mode = TypeAliasExpansionMode.NONE)
+                        km.expandedType = element.aliasee.map(mode = TypeAliasExpansionMode.ERASE)
                     }
                 }
 
@@ -451,38 +451,43 @@ private class MappingExtensions(
      * As of 25 Nov 2019, the latter form is used only for KmTypeAlias.underlyingType.
      */
     // TODO: Add caching if needed.
-    fun StubType.map(shouldExpandTypeAliases: Boolean = true): KmType = when (this) {
-        is AbbreviatedType -> {
-            val typeAliasClassifier = KmClassifier.TypeAlias(abbreviatedClassifier.fqNameSerialized)
-            val typeArguments = typeArguments.map { it.map(shouldExpandTypeAliases) }
-            val abbreviatedType = KmType(flags).also { km ->
-                km.classifier = typeAliasClassifier
-                km.arguments += typeArguments
-            }
-            if (shouldExpandTypeAliases) {
-                // Abbreviated and expanded types have the same nullability.
-                KmType(flags).also { km ->
-                    km.abbreviatedType = abbreviatedType
-                    val kmUnderlyingType = underlyingType.map(true)
-                    km.arguments += kmUnderlyingType.arguments
-                    km.classifier = kmUnderlyingType.classifier
+    fun StubType.map(mode: TypeAliasExpansionMode = TypeAliasExpansionMode.EXPANSION): KmType = when (this) {
+        is AbbreviatedType -> when (mode) {
+            TypeAliasExpansionMode.ERASE -> underlyingType.map(mode)
+            TypeAliasExpansionMode.NONE,
+            TypeAliasExpansionMode.EXPANSION -> {
+                val typeAliasClassifier = KmClassifier.TypeAlias(abbreviatedClassifier.fqNameSerialized)
+                val typeArguments = typeArguments.map { it.map(mode) }
+                val abbreviatedType = KmType(flags).also { km ->
+                    km.classifier = typeAliasClassifier
+                    km.arguments += typeArguments
                 }
-            } else {
-                abbreviatedType
+                if (mode == TypeAliasExpansionMode.NONE) {
+                    abbreviatedType
+                } else {
+                    // Abbreviated and expanded types have the same nullability.
+                    KmType(flags).also { km ->
+                        km.abbreviatedType = abbreviatedType
+                        val kmUnderlyingType = underlyingType.map(TypeAliasExpansionMode.EXPANSION)
+                        km.arguments += kmUnderlyingType.arguments
+                        km.classifier = kmUnderlyingType.classifier
+                    }
+                }
             }
         }
         is ClassifierStubType -> KmType(flags).also { km ->
-            typeArguments.mapTo(km.arguments) { it.map(shouldExpandTypeAliases) }
+            typeArguments.mapTo(km.arguments) { it.map(mode) }
             km.classifier = KmClassifier.Class(classifier.fqNameSerialized)
         }
         is FunctionalType -> KmType(flags).also { km ->
-            typeArguments.mapTo(km.arguments) { it.map(shouldExpandTypeAliases) }
+            typeArguments.mapTo(km.arguments) { it.map(mode) }
             km.classifier = KmClassifier.Class(classifier.fqNameSerialized)
         }
         is TypeParameterType -> KmType(flags).also { km ->
             km.classifier = KmClassifier.TypeParameter(id)
         }
     }
+
 
     fun FunctionParameterStub.map(): KmValueParameter =
             KmValueParameter(flags, name).also { km ->
@@ -504,9 +509,9 @@ private class MappingExtensions(
                 km.upperBounds.addIfNotNull(upperBound?.map())
             }
 
-    private fun TypeArgument.map(expanded: Boolean = true): KmTypeProjection = when (this) {
+    private fun TypeArgument.map(mode: TypeAliasExpansionMode): KmTypeProjection = when (this) {
         TypeArgument.StarProjection -> KmTypeProjection.STAR
-        is TypeArgumentStub -> KmTypeProjection(variance.map(), type.map(expanded))
+        is TypeArgumentStub -> KmTypeProjection(variance.map(), type.map(mode))
         else -> error("Unexpected TypeArgument: $this")
     }
 
@@ -560,4 +565,24 @@ private class MappingExtensions(
 
     private val TypeParameterStub.id: Int
         get() = typeParametersInterner.intern(this)
+}
+
+private enum class TypeAliasExpansionMode {
+    /**
+     * Substitution of type alias with fully expanded type.
+     * Typical usage: expanded type of typealias.
+     */
+    ERASE,
+
+    /**
+     * Do not perform type expansion.
+     * Typical usage: underlying type of typealias.
+     */
+    NONE,
+
+    /**
+     * Preserve `abbreviatedType` reference to the original type.
+     * Typical usage: declarations (properties, functions...)
+     */
+    EXPANSION
 }
