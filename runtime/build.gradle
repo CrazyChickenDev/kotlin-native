@@ -3,6 +3,8 @@
  * that can be found in the LICENSE file.
  */
 import org.jetbrains.kotlin.CompileToBitcode
+import org.jetbrains.kotlin.GenerateCompilationDatabase
+import org.jetbrains.kotlin.MergeCompilationDatabases
 import org.jetbrains.kotlin.UtilsKt
 
 // TODO: consider using some Gradle plugins to build and test
@@ -75,6 +77,25 @@ targetList.each { targetName ->
     tasks.create("${targetName}ObjC", CompileToBitcode, file('src/objc'), "objc", targetName).configure {
         includeRuntime(delegate)
     }
+}
+
+tasks.withType(CompileToBitcode).toList().each { task ->
+    tasks.create("${task.name}_CompilationDatabase",
+                 GenerateCompilationDatabase,
+                 task.srcRoot.absolutePath,
+                 task.inputFiles,
+                 task.computedFlags,
+                 task.outFile.absolutePath).configure {
+        outputFile = file(task.outFile.absolutePath + ".compilation-database.json")
+    }
+}
+
+tasks.create("CompilationDatabase", MergeCompilationDatabases).configure {
+    tasks.withType(GenerateCompilationDatabase).each { task ->
+        dependsOn(task)
+        inputFiles.add(task.outputFile)
+    }
+    outputFile = file(buildDir.absolutePath + "/compile_commands.json")
 }
 
 task hostRuntime(dependsOn: "${hostName}Runtime")
