@@ -85,6 +85,7 @@ tasks.withType(CompileToBitcode).toList().each { task ->
                  task.target,
                  task.srcRoot.absolutePath,
                  task.inputFiles,
+                 task.executable,
                  task.computedFlags,
                  task.outFile.absolutePath).configure {
         outputFile = file(task.outFile.absolutePath + ".compilation-database.json")
