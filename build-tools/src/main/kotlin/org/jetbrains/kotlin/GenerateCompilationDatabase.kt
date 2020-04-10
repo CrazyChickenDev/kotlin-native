@@ -27,23 +27,15 @@ open class GenerateCompilationDatabase @Inject constructor(@Input val target: St
     lateinit var outputFile: File
 
     @Serializable
-    data class Entry(val directory: String, val file: String, val command: String, val output: String)
-
-    // TODO: implement
-    private fun escapeString(arg: String): String {
-        return arg
-    }
+    data class Entry(val directory: String, val file: String, val arguments: List<String>, val output: String)
 
     @TaskAction
     fun run() {
         val plugin = project.convention.getPlugin(ExecClang::class.java)
         val executable = plugin.resolveExecutable(executable)
-        val args = arguments + plugin.konanArgs(target)
-        val command = args.fold(executable) { command, arg ->
-            command + " " + escapeString(arg)
-        }
+        val args = listOf(executable) + arguments + plugin.konanArgs(target)
         val json = Json(JsonConfiguration.Stable)
-        val entries: List<Entry> = files.map { Entry(directory, it, command + " " + escapeString(it), output) }
+        val entries: List<Entry> = files.map { Entry(directory, it, args + listOf(it), output) }
         outputFile.writeText(json.stringify(Entry.serializer().list, entries))
     }
 }
