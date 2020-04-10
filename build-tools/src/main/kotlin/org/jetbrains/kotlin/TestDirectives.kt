@@ -85,8 +85,10 @@ data class TestModule(
         val dependencies: List<String>,
         val friends: List<String>
 ) {
-    val isDefaultModule
-        get() = this == default || name.endsWith(".main")
+    fun isDefaultModule() = this == default || name.endsWith(".main")
+
+    fun linkDependencies(outputPath: String): List<String> =
+        dependencies.flatMap { listOf("-l", "$outputPath.$it.klib") }
 
     companion object {
         val default = TestModule("default", emptyList(), emptyList())

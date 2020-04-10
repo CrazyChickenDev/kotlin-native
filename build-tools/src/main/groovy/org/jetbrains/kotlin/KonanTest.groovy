@@ -504,10 +504,8 @@ fun runTest() {
                     def libsFlags = []
                     orderedModules.reverse().each { module ->
                         if (!module.isDefaultModule()) {
-                            def klibModulePath = "${executablePath()}.${module.name}.klib".toString()
-                            module.dependencies.each {
-                                libsFlags += ["-l", "${executablePath()}.${it}.klib".toString()]
-                            }
+                            def klibModulePath = "${executablePath()}.${module.name}.klib"
+                            libsFlags += module.linkDependencies(executablePath())
                             runCompiler(compileList.findAll { it.module == module }.collect { it.path },
                                     klibModulePath, flags + ["-p", "library"] + libsFlags)
                         }
@@ -515,8 +513,11 @@ fun runTest() {
 
                     def compileMain = compileList.findAll {
                         it.module.isDefaultModule() || it.module == TestModule.support
-                    }.collect { it.path }
-                    if (!compileMain.empty) runCompiler(compileMain, executablePath(), flags + libsFlags)
+                    }
+                    compileMain.forEach { f ->
+                        libsFlags.addAll(f.module.linkDependencies(executablePath()))
+                    }
+                    if (!compileMain.empty) runCompiler(compileMain.collect { it.path }, executablePath(), flags + libsFlags)
                 }
             } catch (Exception ex) {
                 project.logger.quiet("ERROR: Compilation failed for test suite: $name with exception", ex)
