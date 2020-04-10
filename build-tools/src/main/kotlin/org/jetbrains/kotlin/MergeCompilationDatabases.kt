@@ -30,7 +30,7 @@ open class MergeCompilationDatabases @Inject constructor(): DefaultTask() {
         for (file in inputFiles) {
             entries.addAll(Json.parse(serializer, file.readText()))
         }
-        val json = Json(JsonConfiguration.Stable)
+        val json = Json(JsonConfiguration.Stable.copy(prettyPrint = true))
         outputFile.writeText(json.stringify(serializer, entries))
     }
 }

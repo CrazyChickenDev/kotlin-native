@@ -82,6 +82,7 @@ targetList.each { targetName ->
 tasks.withType(CompileToBitcode).toList().each { task ->
     tasks.create("${task.name}_CompilationDatabase",
                  GenerateCompilationDatabase,
+                 task.target,
                  task.srcRoot.absolutePath,
                  task.inputFiles,
                  task.computedFlags,

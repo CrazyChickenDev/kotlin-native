@@ -16,7 +16,8 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.TaskAction
 
-open class GenerateCompilationDatabase @Inject constructor(@Input val directory: String,
+open class GenerateCompilationDatabase @Inject constructor(@Input val target: String,
+                                                           @Input val directory: String,
                                                            @Input val files: List<String>,
                                                            @Input val arguments: List<String>,
                                                            @Input val output: String): DefaultTask() {
@@ -29,8 +30,10 @@ open class GenerateCompilationDatabase @Inject constructor(@Input val directory:
 
     @TaskAction
     fun run() {
+        val plugin = project.convention.getPlugin(ExecClang::class.java)
+        val args = arguments + plugin.konanArgs(target)
         val json = Json(JsonConfiguration.Stable)
-        val entries: List<Entry> = files.map { Entry(directory, it, arguments, output) }
+        val entries: List<Entry> = files.map { Entry(directory, it, args + listOf(it), output) }
         outputFile.writeText(json.stringify(Entry.serializer().list, entries))
     }
 }

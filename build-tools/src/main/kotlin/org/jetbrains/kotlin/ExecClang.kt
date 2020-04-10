@@ -34,7 +34,7 @@ class ExecClang(private val project: Project) {
         return platformManager.platform(target).clang.clangArgsForKonanSources.asList()
     }
 
-    private fun konanArgs(targetName: String?): List<String> {
+    fun konanArgs(targetName: String?): List<String> {
         val target = platformManager.targetManager(targetName).target
         return konanArgs(target)
     }
