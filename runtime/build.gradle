@@ -93,8 +93,10 @@ tasks.withType(CompileToBitcode).toList().each { task ->
 
 tasks.create("CompilationDatabase", MergeCompilationDatabases).configure {
     tasks.withType(GenerateCompilationDatabase).each { task ->
-        dependsOn(task)
-        inputFiles.add(task.outputFile)
+        if (task.target == hostName) {
+            dependsOn(task)
+            inputFiles.add(task.outputFile)
+        }
     }
     outputFile = file(buildDir.absolutePath + "/compile_commands.json")
 }
